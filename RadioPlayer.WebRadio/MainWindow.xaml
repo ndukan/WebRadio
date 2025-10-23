@@ -1,0 +1,255 @@
+﻿<Window x:Class="RadioPlayer.WebRadio.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Web Radio Player" Height="610" Width="900"
+        WindowStartupLocation="CenterScreen">
+
+    <Window.Resources>
+        <Style TargetType="Button">
+            <Setter Property="Padding" Value="12,6"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Margin" Value="4"/>
+        </Style>
+
+        <!-- STYLE ZA STANICE -->
+        <Style x:Key="StationItemStyle" TargetType="ListBoxItem">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="8,6"/>
+            <Style.Triggers>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="#3498db"/>
+                    <Setter Property="Foreground" Value="White"/>
+                </Trigger>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#ecf0f1"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
+
+    <Grid Background="#f8f9fa">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="300"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- SIDEBAR - LISTA STANICA -->
+        <Border Grid.Column="0" Background="#2c3e50" BorderBrush="#34495e" BorderThickness="0,0,1,0">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <!-- HEADER SIDEBAR -->
+                <Border Grid.Row="0" Background="#34495e" Padding="15,10">
+                    <TextBlock Text="📻 Radio Stations" 
+                              Foreground="White" 
+                              FontSize="16" 
+                              FontWeight="Bold"/>
+                </Border>
+
+                <!-- LISTA STANICA -->
+                <ListBox Grid.Row="1" 
+                        x:Name="StationsListBox"
+                        ItemsSource="{Binding Stations}"
+                        ItemContainerStyle="{StaticResource StationItemStyle}"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        ScrollViewer.VerticalScrollBarVisibility="Auto">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel Grid.Column="0" Orientation="Vertical">
+                                    <TextBlock Text="{Binding Name}" 
+                                              Foreground="White" 
+                                              FontWeight="SemiBold"
+                                              TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Text="{Binding Genre}" 
+                                              Foreground="#bdc3c7" 
+                                              FontSize="10"
+                                              TextTrimming="CharacterEllipsis"/>
+                                </StackPanel>
+
+                                <TextBlock Grid.Column="1" 
+                                          Text="{Binding Country}" 
+                                          Foreground="#95a5a6"
+                                          FontSize="10"
+                                          VerticalAlignment="Center"
+                                          Margin="10,0,0,0"/>
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+
+                <!-- STATION COUNT -->
+                <Border Grid.Row="2" Background="#34495e" Padding="10,5">
+                    <TextBlock x:Name="StationCountText"
+                              Text="0 stations" 
+                              Foreground="#bdc3c7" 
+                              FontSize="11"
+                              HorizontalAlignment="Center"/>
+                </Border>
+            </Grid>
+        </Border>
+
+        <!-- MAIN CONTENT -->
+        <Grid Grid.Column="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- HEADER -->
+            <Border Grid.Row="0" Background="#3498db" Padding="20,15">
+                <TextBlock Text="🎵 Radio Player - Modern" 
+                          Foreground="White" 
+                          FontSize="20" 
+                          FontWeight="Bold"
+                          HorizontalAlignment="Center"/>
+            </Border>
+
+            <!-- MAIN CONTENT -->
+            <StackPanel Grid.Row="1" 
+                       VerticalAlignment="Center" 
+                       HorizontalAlignment="Center"
+                       Margin="30">
+
+                <!-- CURRENT STATION INFO -->
+                <Border Background="White" 
+                       CornerRadius="12" 
+                       Padding="25" 
+                       Margin="10"
+                       BorderBrush="#e0e0e0" 
+                       BorderThickness="1"
+                       Width="400">
+                    <StackPanel>
+                        <TextBlock Text="Now Playing:" 
+                                  FontWeight="Bold" 
+                                  FontSize="14"
+                                  Foreground="#7f8c8d"
+                                  Margin="0,0,0,8"/>
+
+                        <TextBlock x:Name="CurrentStationText" 
+                                  Text="Select a station from the list" 
+                                  FontSize="18" 
+                                  FontWeight="Bold"
+                                  Foreground="#2c3e50"
+                                  TextWrapping="Wrap"/>
+
+                        <TextBlock x:Name="CurrentStationInfo" 
+                                  Text="" 
+                                  FontSize="12"
+                                  Foreground="#95a5a6"
+                                  Margin="0,5,0,0"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- STATUS -->
+                <Border Background="White" 
+                       CornerRadius="10" 
+                       Padding="20" 
+                       Margin="10"
+                       BorderBrush="#e0e0e0" 
+                       BorderThickness="1">
+                    <StackPanel>
+                        <TextBlock Text="Status:" 
+                                  FontWeight="Bold" 
+                                  FontSize="14"
+                                  Foreground="#7f8c8d"/>
+                        <TextBlock x:Name="StatusText" 
+                                  Text="Ready to play..." 
+                                  FontSize="13" 
+                                  Margin="0,5,0,0"
+                                  Foreground="#2c3e50"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- BUFFER PROGRESS -->
+                <Border Background="White" 
+                       CornerRadius="10" 
+                       Padding="20" 
+                       Margin="10"
+                       BorderBrush="#e0e0e0" 
+                       BorderThickness="1">
+                    <StackPanel>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Grid.Column="0"
+                                      Text="Buffer Level:" 
+                                      FontWeight="Bold" 
+                                      FontSize="14"
+                                      Foreground="#7f8c8d"/>
+
+                            <TextBlock Grid.Column="1"
+                                      x:Name="BufferText" 
+                                      Text="0%" 
+                                      FontSize="12"
+                                      Foreground="#95a5a6"/>
+                        </Grid>
+
+                        <ProgressBar x:Name="BufferProgress" 
+                                    Height="16" 
+                                    Width="350" 
+                                    Margin="0,8,0,0"
+                                    Minimum="0" 
+                                    Maximum="100"
+                                    Background="#ecf0f1"
+                                    BorderThickness="0">
+                            <ProgressBar.Foreground>
+                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                    <GradientStop Color="#2ecc71" Offset="0"/>
+                                    <GradientStop Color="#f39c12" Offset="0.7"/>
+                                    <GradientStop Color="#e74c3c" Offset="1"/>
+                                </LinearGradientBrush>
+                            </ProgressBar.Foreground>
+                        </ProgressBar>
+                    </StackPanel>
+                </Border>
+
+                <!-- CONTROLS -->
+                <StackPanel Orientation="Horizontal" 
+                           HorizontalAlignment="Center" 
+                           Margin="0,20,0,0">
+                    <Button x:Name="PlayButton" 
+                           Content="▶️ Play" 
+                           Background="#27ae60" 
+                           Foreground="White"
+                           Click="PlayButton_Click"
+                           FontWeight="SemiBold"
+                           Padding="20,10"/>
+
+                    <Button x:Name="StopButton" 
+                           Content="⏹️ Stop" 
+                           Background="#e74c3c" 
+                           Foreground="White"
+                           Click="StopButton_Click"
+                           FontWeight="SemiBold"
+                           Padding="20,10"
+                           IsEnabled="False"/>
+                </StackPanel>
+
+            </StackPanel>
+
+            <!-- FOOTER -->
+            <Border Grid.Row="2" Background="#ecf0f1" Padding="12">
+                <TextBlock Text="🎶 Powered by RadioStream.Core • Select a station and press Play!" 
+                          Foreground="#7f8c8d" 
+                          HorizontalAlignment="Center"
+                          FontSize="11"/>
+            </Border>
+        </Grid>
+    </Grid>
+</Window>
