@@ -272,4 +272,32 @@ public class RadioStreamPlayer : IDisposable
 
         OnDebugMessage("RadioStreamPlayer disposan");
     }
+
+
+    public float Volume
+    {
+        get => _outputDevice?.Volume ?? 0.5f;
+        set
+        {
+            if (_outputDevice != null && value >= 0 && value <= 1.0f)
+            {
+                _outputDevice.Volume = value;
+                OnVolumeChanged(value);
+            }
+        }
+    }
+
+    public event EventHandler<VolumeEventArgs>? VolumeChanged;
+
+    public class VolumeEventArgs : EventArgs
+    {
+        public float Volume { get; }
+        public VolumeEventArgs(float volume) => Volume = volume;
+    }
+
+    private void OnVolumeChanged(float volume)
+    {
+        VolumeChanged?.Invoke(this, new VolumeEventArgs(volume));
+    }
+
 }

@@ -1,7 +1,8 @@
 ﻿<Window x:Class="RadioPlayer.WebRadio.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Web Radio Player" Height="610" Width="900"
+        xmlns:local="clr-namespace:RadioPlayer.WebRadio.Converters"
+        Title="Web Radio Player" Height="680" Width="900"
         WindowStartupLocation="CenterScreen">
 
     <Window.Resources>
@@ -38,56 +39,252 @@
         <Border Grid.Column="0" Background="#2c3e50" BorderBrush="#34495e" BorderThickness="0,0,1,0">
             <Grid>
                 <Grid.RowDefinitions>
+                    <!-- Row 0: Header sa TabControl -->
                     <RowDefinition Height="Auto"/>
+
+                    <!-- Row 1: SEARCH/FILTER (NOVO) --><!--
+                    <RowDefinition Height="Auto"/>-->
+                    
+                    <!-- Row 1: Lista stanica -->
                     <RowDefinition Height="*"/>
+
+                    <!-- Row 2: Footer -->
                     <RowDefinition Height="Auto"/>
+                    
                 </Grid.RowDefinitions>
 
-                <!-- HEADER SIDEBAR -->
-                <Border Grid.Row="0" Background="#34495e" Padding="15,10">
-                    <TextBlock Text="📻 Radio Stations" 
-                              Foreground="White" 
-                              FontSize="16" 
-                              FontWeight="Bold"/>
+
+                
+                <!-- HEADER SIDEBAR - TAB CONTROL -->
+                <Border Grid.Row="0" Background="#34495e" Padding="10">
+                    <TabControl x:Name="StationsTabControl" 
+                        Background="Transparent" 
+                        BorderThickness="0">
+
+                        <TabControl.Resources>
+                            <Style TargetType="TabItem">
+                                <Setter Property="Background" Value="Transparent"/>
+                                <Setter Property="BorderThickness" Value="0"/>
+                                <Setter Property="Padding" Value="8,4"/>
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="TabItem">
+                                            <Border Background="Transparent" Padding="{TemplateBinding Padding}">
+                                                <ContentPresenter ContentSource="Header"/>
+                                            </Border>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </TabControl.Resources>
+
+                        <!-- ALL STATIONS TAB -->
+                        <TabItem>
+                            <TabItem.Header>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="📻" Margin="0,0,5,0"/>
+                                    <TextBlock Text="All Stations" Foreground="White" FontSize="12"/>
+                                </StackPanel>
+                            </TabItem.Header>
+                        </TabItem>
+
+                        <!-- FAVORITES TAB -->
+                        <TabItem>
+                            <TabItem.Header>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="⭐" Margin="0,0,5,0"/>
+                                    <TextBlock Text="Favorites" Foreground="White" FontSize="12"/>
+                                </StackPanel>
+                            </TabItem.Header>
+                        </TabItem>
+
+                    </TabControl>
                 </Border>
 
-                <!-- LISTA STANICA -->
+
+
+
+
+                <!-- LISTA STANICA (vidljiva za All Stations i Favorites) -->
                 <ListBox Grid.Row="1" 
                         x:Name="StationsListBox"
                         ItemsSource="{Binding Stations}"
                         ItemContainerStyle="{StaticResource StationItemStyle}"
                         Background="Transparent"
                         BorderThickness="0"
-                        ScrollViewer.VerticalScrollBarVisibility="Auto">
+                        ScrollViewer.VerticalScrollBarVisibility="Auto"
+                        VirtualizingPanel.IsVirtualizing="False">
                     <ListBox.ItemTemplate>
                         <DataTemplate>
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
 
+                                <!-- STATION INFO -->
                                 <StackPanel Grid.Column="0" Orientation="Vertical">
                                     <TextBlock Text="{Binding Name}" 
-                                              Foreground="White" 
-                                              FontWeight="SemiBold"
-                                              TextTrimming="CharacterEllipsis"/>
+                                        Foreground="White" 
+                                        FontWeight="SemiBold"
+                                        TextTrimming="CharacterEllipsis"/>
                                     <TextBlock Text="{Binding Genre}" 
-                                              Foreground="#bdc3c7" 
-                                              FontSize="10"
-                                              TextTrimming="CharacterEllipsis"/>
+                                        Foreground="#bdc3c7" 
+                                        FontSize="10"
+                                        TextTrimming="CharacterEllipsis"/>
                                 </StackPanel>
 
+                                <!-- COUNTRY -->
                                 <TextBlock Grid.Column="1" 
-                                          Text="{Binding Country}" 
-                                          Foreground="#95a5a6"
-                                          FontSize="10"
-                                          VerticalAlignment="Center"
-                                          Margin="10,0,0,0"/>
+                                        Text="{Binding Country}" 
+                                        Foreground="#95a5a6"
+                                        FontSize="10"
+                                        VerticalAlignment="Center"
+                                        Margin="10,0,5,0"/>
+
+                                <!-- HEART BUTTON -->
+                                <TextBlock Grid.Column="2"
+                                        Text="{Binding IsFavorite, Converter={x:Static local:FavoriteToHeartConverter.Instance}}"
+                                        FontSize="22"
+                                        VerticalAlignment="Center"
+                                        Margin="5,0,0,0"
+                                        Cursor="Hand"
+                                        MouseDown="HeartTextBlock_MouseDown"
+                                        Tag="{Binding}"
+                                        ToolTip="Click to toggle favorite">
+                                    <TextBlock.RenderTransform>
+                                        <ScaleTransform ScaleX="1" ScaleY="1"/>
+                                    </TextBlock.RenderTransform>
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Style.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter Property="Foreground" Value="#3498db"/>
+                                                    <Setter Property="FontSize" Value="16"/>
+                                                </Trigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
                             </Grid>
                         </DataTemplate>
                     </ListBox.ItemTemplate>
                 </ListBox>
+
+
+
+                 <!--SEARCH/FILTER PANEL - STALNO VIDLJIV 
+                <Border Grid.Row="1" Background="#2c3e50" Padding="10" BorderBrush="#34495e" BorderThickness="0,0,0,1">
+                    <StackPanel>
+                         SEARCH BOX 
+                        <Border Background="#34495e" CornerRadius="6" Padding="8" Margin="0,0,0,8">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+
+                                <TextBox x:Name="SearchTextBox" 
+                                        Grid.Column="0"
+                                        BorderThickness="0"
+                                        FontSize="11"
+                                        Padding="6,4"
+                                        VerticalContentAlignment="Center"
+                                        Background="Transparent"
+                                        Foreground="White"
+                                        CaretBrush="White"
+                                        SelectionBrush="#3498db">
+                                    <TextBox.Style>
+                                        <Style TargetType="TextBox">
+                                            <Setter Property="Foreground" Value="White"/>
+                                            <Setter Property="Background" Value="Transparent"/>
+                                            <Style.Triggers>
+                                                <Trigger Property="IsFocused" Value="True">
+                                                    <Setter Property="Background" Value="#3a506b"/>
+                                                </Trigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBox.Style>
+                                </TextBox>
+
+                                <TextBlock Grid.Column="1" 
+                                           Text="🔍" 
+                                           FontSize="12"
+                                           Cursor="Hand"
+                                           VerticalAlignment="Center"
+                                           Margin="5,0,0,0"
+                                           MouseUp="TextBlock_MouseUp"
+                                           ToolTip="Pretraži u All Stations">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="White"/>
+                                            <Style.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter Property="Foreground" Value="Red"/>
+                                                    <Setter Property="RenderTransform">
+                                                        <Setter.Value>
+                                                            <ScaleTransform ScaleX="0.5" ScaleY="0.5"/>
+                                                        </Setter.Value>
+                                                    </Setter>
+                                                </Trigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                    <TextBlock.RenderTransform>
+                                        <ScaleTransform ScaleX="1" ScaleY="1"/>
+                                    </TextBlock.RenderTransform>
+                                </TextBlock>
+                            </Grid>
+                        </Border>
+
+                        --><!-- FILTERS --><!--
+                        <StackPanel Orientation="Horizontal">
+                            --><!-- GENRE FILTER --><!--
+                            <ComboBox x:Name="GenreFilterComboBox"
+                             Width="110"
+                             Height="24"
+                             FontSize="10"
+                             Background="#34495e"
+                             Foreground="Black"
+                             BorderThickness="0"
+                             Padding="4,0"
+                             SelectionChanged="GenreFilterComboBox_SelectionChanged">
+                                --><!--<ComboBoxItem Content="All Genres" Tag="ALL" IsSelected="True"/>--><!--
+                            </ComboBox>
+
+                            --><!-- COUNTRY FILTER --><!--
+                            <ComboBox x:Name="CountryFilterComboBox"
+                             Width="90"
+                             Height="24"
+                             FontSize="10"
+                             Background="#34495e"
+                             Foreground="Black"
+                             BorderThickness="0"
+                             Padding="4,0"
+                             Margin="5,0,0,0"
+                             SelectionChanged="CountryFilterComboBox_SelectionChanged">
+                                --><!--<ComboBoxItem Content="All Countries" Tag="ALL" IsSelected="True"/>--><!--
+                            </ComboBox>
+
+                            --><!-- CLEAR FILTERS BUTTON --><!--
+                            <Button x:Name="ClearFiltersButton"
+                            Content="❌"
+                            Width="24"
+                            Height="24"
+                            FontSize="10"
+                            Background="Transparent"
+                            BorderThickness="0"
+                            Margin="5,0,0,0"
+                            Click="ClearFiltersButton_Click"
+                            ToolTip="Clear all filters"
+                            Visibility="Collapsed"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>-->
+
+
+
 
                 <!-- STATION COUNT -->
                 <Border Grid.Row="2" Background="#34495e" Padding="10,5">
@@ -240,6 +437,34 @@
                            Padding="20,10"
                            IsEnabled="False"/>
                 </StackPanel>
+
+
+                <!-- VOLUME CONTROL -->
+                <Border Background="White" 
+                        CornerRadius="10" 
+                        Padding="20" 
+                        Margin="10"
+                        BorderBrush="#e0e0e0" 
+                        BorderThickness="1">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                        <TextBlock Text="🔈" FontSize="16" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <Slider x:Name="VolumeSlider" 
+               Width="150" 
+               Minimum="0" 
+               Maximum="1" 
+               Value="0.5"
+               TickFrequency="0.1"
+               IsSnapToTickEnabled="True"
+               ValueChanged="VolumeSlider_ValueChanged"/>
+                        <TextBlock Text="🔊" FontSize="16" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                        <TextBlock x:Name="VolumeText" 
+                  Text="50%" 
+                  Width="40"
+                  FontSize="12" 
+                  VerticalAlignment="Center"
+                  Margin="10,0,0,0"/>
+                    </StackPanel>
+                </Border>
 
             </StackPanel>
 

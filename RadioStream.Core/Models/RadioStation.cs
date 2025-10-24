@@ -43,11 +43,6 @@ public class RadioStation : INotifyPropertyChanged
         set { _logoUrl = value; OnPropertyChanged(); }
     }
 
-    public bool IsFavorite
-    {
-        get => _isFavorite;
-        set { _isFavorite = value; OnPropertyChanged(); }
-    }
 
     public int Bitrate
     {
@@ -63,4 +58,24 @@ public class RadioStation : INotifyPropertyChanged
     }
 
     public override string ToString() => Name;
+
+
+    public bool IsFavorite
+    {
+        get => _isFavorite;
+        set
+        {
+            if (_isFavorite != value)
+            {
+                _isFavorite = value;
+                OnPropertyChanged();
+
+                OnPropertyChanged(nameof(DisplayName));
+            }
+        }
+    }
+
+    public string DisplayName => $"{(IsFavorite ? "⭐ " : "")}{Name}";
+
+
 }

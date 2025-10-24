@@ -1,5 +1,9 @@
-﻿using System.Windows;
+﻿using System.Diagnostics;
+using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Threading;
 using RadioStream.Core.Models;
 using RadioStream.Core.Services;
@@ -49,12 +53,28 @@ namespace RadioPlayer.WebRadio
                     StopButton.IsEnabled = false;
                     PlayButton.IsEnabled = true;
                 });
+
+
+            // volume control
+            _player.VolumeChanged += (s, e) =>  
+                Dispatcher.Invoke(() =>
+                {
+                    VolumeSlider.Value = e.Volume;
+                    VolumeText.Text = $"{(int)(e.Volume * 100)}%";
+                });
+
+
+            // favoriti
+            _stationManager.StationFavorited += (s, e) => Dispatcher.Invoke(() => RefreshStationsList());
+            _stationManager.StationUnfavorited += (s, e) => Dispatcher.Invoke(() => RefreshStationsList());
+
         }
 
         private void InitializeUI()
         {
             StationsListBox.SelectionChanged += StationsListBox_SelectionChanged;
         }
+
 
         private void StationsListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
@@ -68,10 +88,6 @@ namespace RadioPlayer.WebRadio
             }
         }
 
-        private void UpdateStationCount()
-        {
-            StationCountText.Text = $"{_stationManager.Stations.Count} stations";
-        }
 
         private void StartDebugTimer()
         {
@@ -81,7 +97,7 @@ namespace RadioPlayer.WebRadio
             {
                 if (_player != null)
                 {
-                    System.Diagnostics.Trace.WriteLine($"UI Timer - Selected: {StationsListBox.SelectedItem}, Buffer: {BufferProgress.Value}%");
+                    //System.Diagnostics.Trace.WriteLine($"UI Timer - Selected: {StationsListBox.SelectedItem}, Buffer: {BufferProgress.Value}%");
                 }
             };
             _debugTimer.Start();
@@ -126,5 +142,128 @@ namespace RadioPlayer.WebRadio
             _debugTimer?.Stop();
             base.OnClosed(e);
         }
+
+        private void VolumeSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            if (_player != null)
+            {
+                _player.Volume = (float)e.NewValue;
+                VolumeText.Text = $"{(int)(e.NewValue * 100)}%";
+            }
+        }
+
+
+
+        //private void RefreshStationsList()
+        //{
+        //    if (StationsTabControl.SelectedIndex == 0) // All Stations
+        //    {
+        //        StationsListBox.ItemsSource = _stationManager.Stations;
+        //    }
+        //    else // Favorites
+        //    {
+        //        StationsListBox.ItemsSource = _stationManager.FavoriteStations;
+        //    }
+        //    UpdateStationCount();
+        //}
+
+
+
+        private static T FindParent<T>(DependencyObject child) where T : DependencyObject
+        {
+            var parent = VisualTreeHelper.GetParent(child);
+            if (parent == null) return null;
+            if (parent is T found) return found;
+            return FindParent<T>(parent);
+        }
+
+        private void FavoriteButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button button && button.Tag is RadioStation station)
+            {
+                _stationManager.ToggleFavorite(station);
+
+                //ManualRefreshHeart(button, station);
+                button.Content = station.IsFavorite ? "❤️" : "🤍";
+
+                //RefreshStationsUI();
+
+                Trace.WriteLine($"⭐ Favorite toggled: {station.Name} -> {station.IsFavorite}");
+            }
+        }
+
+        private void HeartTextBlock_MouseDown(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is TextBlock heartText && heartText.Tag is RadioStation station)
+            {
+                _stationManager.ToggleFavorite(station);
+
+                // 👇 OSVEŽI BINDING - TextBlock bolje radi sa bindingom!
+                var binding = heartText.GetBindingExpression(TextBlock.TextProperty);
+                binding?.UpdateTarget();
+
+                // OSVEŽI CELE LISTE
+                RefreshStationsUI();
+
+                Trace.WriteLine($"⭐ Favorite toggled: {station.Name} -> {station.IsFavorite}");
+
+                // Animacija (opciono)
+                HeartAnimation(heartText);
+            }
+        }
+
+        private void HeartAnimation(TextBlock heartText)
+        {
+            // Mala animacija kada se klikne
+            var scaleAnimation = new DoubleAnimation(1.3, 1, TimeSpan.FromMilliseconds(200));
+            heartText.BeginAnimation(ScaleTransform.ScaleXProperty, scaleAnimation);
+            heartText.BeginAnimation(ScaleTransform.ScaleYProperty, scaleAnimation);
+        }
+
+
+
+        private void UpdateStationCount()
+        {
+            if (StationsTabControl.SelectedIndex == 0)
+            {
+                StationCountText.Text = $"{_stationManager.Stations.Count} stations";
+            }
+            else
+            {
+                StationCountText.Text = $"{_stationManager.FavoriteStations.Count} favorites";
+            }
+        }
+        
+        
+        
+        private void RefreshStationsUI()
+        {
+            // 👇 NAJJEDNOSTAVNIJE - re-setuj ItemsSource
+            var currentItems = StationsListBox.ItemsSource;
+            StationsListBox.ItemsSource = null;
+            StationsListBox.ItemsSource = currentItems;
+
+            UpdateStationCount();
+            Trace.WriteLine("🔄 UI refreshed - ItemsSource reset");
+        }
+
+
+
+        // UPDATE RefreshStationsList METODA
+        private void RefreshStationsList()
+        {
+            if (StationsTabControl.SelectedIndex == 0) // All Stations
+            {
+                StationsListBox.ItemsSource = _stationManager.FilteredStations;
+            }
+            else // Favorites
+            {
+                StationsListBox.ItemsSource = _stationManager.FilteredFavorites;
+            }
+            UpdateStationCount();
+        }
+
+
+
     }
 }
