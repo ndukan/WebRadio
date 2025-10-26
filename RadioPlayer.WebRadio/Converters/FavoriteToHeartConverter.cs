@@ -1,7 +1,11 @@
-﻿using System;
-using System.Diagnostics;
+﻿
+using System.Windows;
 using System.Globalization;
 using System.Windows.Data;
+using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Shapes;
+using System.Windows.Controls;
 
 namespace RadioPlayer.WebRadio.Converters
 {
@@ -9,23 +13,16 @@ namespace RadioPlayer.WebRadio.Converters
     {
         public static FavoriteToHeartConverter Instance { get; } = new FavoriteToHeartConverter();
 
+
+        public Brush FavoriteColor { get; set; } = Brushes.Red;
+        public Brush NonFavoriteColor { get; set; } = Brushes.White;
+
+
+
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            //return (value is bool isFavorite && isFavorite) ? "❤️" : "🤍";
-
-            //bool isFavorite = (bool)value;
-            //System.Diagnostics.Trace.WriteLine($"🎯 Converter called: {isFavorite}");
-            //return isFavorite ? "❤️" : "🤍";
-
-            if (value is bool isFavorite)
-            {
-                //var result = isFavorite ? "❤️" : "🤍";
-                var result = isFavorite ? "♥" : "♡";
-
-                Trace.WriteLine($"🎯 Converter: {isFavorite} -> {result}");
-                return result;
-            }
-            return "♡";
+            var isFavorite = value as bool? ?? false;
+            return isFavorite ? "♥" : "♡";
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)

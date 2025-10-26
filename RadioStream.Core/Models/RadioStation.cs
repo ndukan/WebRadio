@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System.Text.Json.Serialization;
 
 namespace RadioStream.Core.Models;
 
@@ -37,6 +38,7 @@ public class RadioStation : INotifyPropertyChanged
         set { _country = value; OnPropertyChanged(); }
     }
 
+    [JsonIgnore]
     public string LogoUrl
     {
         get => _logoUrl;
@@ -50,16 +52,9 @@ public class RadioStation : INotifyPropertyChanged
         set { _bitrate = value; OnPropertyChanged(); }
     }
 
-    public event PropertyChangedEventHandler? PropertyChanged;
-
-    protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
-    {
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-    }
-
     public override string ToString() => Name;
 
-
+    [JsonInclude]
     public bool IsFavorite
     {
         get => _isFavorite;
@@ -70,12 +65,20 @@ public class RadioStation : INotifyPropertyChanged
                 _isFavorite = value;
                 OnPropertyChanged();
 
-                OnPropertyChanged(nameof(DisplayName));
+                //OnPropertyChanged(nameof(DisplayName));
             }
         }
     }
 
+    [JsonIgnore]
     public string DisplayName => $"{(IsFavorite ? "⭐ " : "")}{Name}";
 
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)
+    {
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    }
 
 }

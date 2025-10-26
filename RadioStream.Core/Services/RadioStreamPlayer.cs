@@ -18,6 +18,17 @@ public class RadioStreamPlayer : IDisposable
     private bool _isReading;
     private bool _isDisposed;
 
+    // IsPlaying
+    private readonly SemaphoreSlim _playbackLock = new SemaphoreSlim(1, 1);
+    public bool IsPlaying => CurrentState == PlaybackState.Playing || CurrentState == PlaybackState.Buffering;
+    
+    private RadioStation _stationNowPlay;
+    public RadioStation StationPlayNow
+    {
+        get => _stationNowPlay;
+        set => _stationNowPlay = value;
+    }
+
     // Konfiguracija
     private const int BUFFER_DURATION_SECONDS = 5;
     private const int READ_BUFFER_SIZE = 4096;
@@ -30,6 +41,16 @@ public class RadioStreamPlayer : IDisposable
     public event EventHandler<PlaybackEventArgs>? DebugMessage;
 
     public PlaybackState CurrentState { get; private set; } = PlaybackState.Stopped;
+
+
+
+    private VolumeMeter? _volumeMeter;
+    private WaveFormat? _currentWaveFormat;
+    private readonly object _volumeMeterLock = new object();
+
+    public bool IsVolumeMeterEnabled => _volumeMeter != null;
+    public event EventHandler<VolumeLevelEventArgs>? VolumeLevelChanged;
+
 
     public RadioStreamPlayer()
     {
@@ -59,14 +80,14 @@ public class RadioStreamPlayer : IDisposable
     }
 
 
-    public async Task PlayAsync(string streamUrl)
+    public async Task PlayAsync(RadioStation playingStation)
     {
         if (_isDisposed)
             throw new ObjectDisposedException(nameof(RadioStreamPlayer));
 
         // Validacija URL-a
-        if (string.IsNullOrWhiteSpace(streamUrl) ||
-            (!streamUrl.StartsWith("http://") && !streamUrl.StartsWith("https://")))
+        if (string.IsNullOrWhiteSpace(playingStation.StreamUrl) ||
+            (!playingStation.StreamUrl.StartsWith("http://") && !playingStation.StreamUrl.StartsWith("https://")))
         {
             throw new ArgumentException("Invalid stream URL");
         }
@@ -76,14 +97,12 @@ public class RadioStreamPlayer : IDisposable
             await StopAsync();
 
             OnStatusChanged("Povezivanje na stream...");
-            OnDebugMessage($"Povezujem se na: {streamUrl}");
+            OnDebugMessage($"Povezujem se na: {playingStation.StreamUrl}");
 
             CurrentState = PlaybackState.Buffering;
 
-            // ✅ JEDNOSTAVNO - bez dodatnih settings
-            _mediaReader = new MediaFoundationReader(streamUrl);
+            _mediaReader = new MediaFoundationReader(playingStation.StreamUrl);
 
-            // Proveri da li je stream validan
             if (_mediaReader.WaveFormat == null)
             {
                 throw new InvalidOperationException("Stream nema audio format");
@@ -98,6 +117,7 @@ public class RadioStreamPlayer : IDisposable
             _ = Task.Run(() => ReadStreamWorker(_cancellationTokenSource!.Token));
 
             CurrentState = PlaybackState.Playing;
+            StationPlayNow = playingStation;
             OnStatusChanged("Reprodukcija pokrenuta");
             OnDebugMessage($"Format: {_mediaReader.WaveFormat.SampleRate}Hz, {_mediaReader.WaveFormat.Channels}ch");
         }
@@ -125,11 +145,40 @@ public class RadioStreamPlayer : IDisposable
 
     public async Task StopAsync()
     {
+        await _playbackLock.WaitAsync();
+
+        try
+        {
+            await StopInternalAsync();
+
+        }
+        catch (Exception ex)
+        {
+            OnError(ex, "Zaustavljanje reprodukcije");
+        }
+        finally
+        {
+            _playbackLock.Release();
+        }
+    }
+
+
+    private async Task StopInternalAsync()
+    {
+        if (!_isReading && CurrentState == PlaybackState.Stopped)
+            return; // Već je zaustavljeno
+
         _isReading = false;
         CurrentState = PlaybackState.Stopped;
 
         try
         {
+            lock (_volumeMeterLock)
+            {
+                _volumeMeter?.Dispose();
+                _volumeMeter = null;
+            }
+
             _cancellationTokenSource?.Cancel();
             await Task.Delay(100);
 
@@ -138,6 +187,7 @@ public class RadioStreamPlayer : IDisposable
             _mediaReader = null;
             _bufferProvider = null;
 
+            CurrentState = PlaybackState.Stopped;
             OnStatusChanged("Reprodukcija zaustavljena");
             OnDebugMessage("Reprodukcija zaustavljena");
 
@@ -150,9 +200,12 @@ public class RadioStreamPlayer : IDisposable
         }
         catch (Exception ex)
         {
+            CurrentState = PlaybackState.Error;
             OnError(ex, "Zaustavljanje reprodukcije");
         }
     }
+
+
 
     public void SetVolume(float volume)
     {
@@ -170,8 +223,31 @@ public class RadioStreamPlayer : IDisposable
             DiscardOnBufferOverflow = true
         };
 
+        InitializeVolumeMeter();
+
         OnDebugMessage($"Buffer: {BUFFER_DURATION_SECONDS}s, Format: {waveFormat.SampleRate}Hz");
     }
+
+
+    private void InitializeVolumeMeter()
+    {
+        lock (_volumeMeterLock)
+        {
+            _volumeMeter?.Dispose();
+
+            if (_bufferProvider != null && _currentWaveFormat != null)
+            {
+                _volumeMeter = new VolumeMeter(_bufferProvider, _currentWaveFormat);
+                _volumeMeter.VolumeLevelChanged += OnVolumeMeterLevelChanged;
+            }
+        }
+    }
+
+    private void OnVolumeMeterLevelChanged(object? sender, VolumeLevelEventArgs e)
+    {
+        VolumeLevelChanged?.Invoke(this, e);
+    }
+
 
     private async Task ReadStreamWorker(CancellationToken cancellationToken)
     {
@@ -265,6 +341,12 @@ public class RadioStreamPlayer : IDisposable
 
         _cancellationTokenSource?.Cancel();
 
+        lock (_volumeMeterLock)
+        {
+            _volumeMeter?.Dispose();
+            _volumeMeter = null;
+        }
+
         _outputDevice?.Dispose();
         _mediaReader?.Dispose();
 
@@ -299,5 +381,37 @@ public class RadioStreamPlayer : IDisposable
     {
         VolumeChanged?.Invoke(this, new VolumeEventArgs(volume));
     }
+
+
+
+    public void StartVolumeMeter()
+    {
+        // Automatski se startuje kada se stream pokrene
+        OnDebugMessage("Volume meter je automatski aktiviran tokom reprodukcije");
+    }
+
+    public void StopVolumeMeter()
+    {
+        lock (_volumeMeterLock)
+        {
+            _volumeMeter?.Dispose();
+            _volumeMeter = null;
+        }
+        OnDebugMessage("Volume meter zaustavljen");
+    }
+
+    public (double left, double right) GetCurrentVolumeLevel()
+    {
+        lock (_volumeMeterLock)
+        {
+            if (_volumeMeter == null)
+                return (0.0, 0.0);
+
+            // Ovo je simplified - u pravoj implementaciji bi imali real-time vrednosti
+            return (0.0, 0.0);
+        }
+    }
+
+
 
 }

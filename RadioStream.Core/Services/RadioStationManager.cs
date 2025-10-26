@@ -1,12 +1,17 @@
 ﻿using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
+using System.Reflection;
+using System.Text.Json;
 using RadioStream.Core.Models;
 
 namespace RadioStream.Core.Services;
 
 public class RadioStationManager
 {
+    private readonly string _dataFilePath;
+
     public ObservableCollection<RadioStation> Stations { get; } = new();
     public ObservableCollection<RadioStation> FavoriteStations { get; } = new();
 
@@ -28,11 +33,141 @@ public class RadioStationManager
 
     public RadioStationManager()
     {
-        LoadDefaultStations();
+        // Postavi putanju do JSON fajla
+        //_dataFilePath = Path.Combine(
+        //    Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        //    "RadioPlayer",
+        //    "radiostations.json"
+        //);
 
-        UpdateAvailableFilters();
-        ApplyFilters();
+        _dataFilePath = Path.Combine(GetAppDirectory(), "radiostations.json");
+
+
+        // Obezbedi da direktorijum postoji
+        var directory = Path.GetDirectoryName(_dataFilePath);
+        if (!Directory.Exists(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
+
+        LoadStations();
+        //UpdateAvailableFilters();
+        //ApplyFilters();
     }
+
+    private static string GetAppDirectory()
+    {
+        // Vraća folder gde se .exe nalazi
+        return Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) ?? Environment.CurrentDirectory;
+    }
+
+
+    private void LoadStations()
+    {
+        try
+        {
+            if (File.Exists(_dataFilePath))
+            {
+                var json = File.ReadAllText(_dataFilePath);
+                Debug.WriteLine($"📄 JSON file exists, size: {json.Length} chars");
+
+                var options = new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true,
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                    NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString
+                };
+
+                var stations = JsonSerializer.Deserialize<List<RadioStation>>(json, options);
+
+                if (stations != null)
+                {
+                    Stations.Clear();
+                    FavoriteStations.Clear();
+
+                    foreach (var station in stations)
+                    {
+                        // Provera validnosti stanice
+                        if (IsValidStation(station))
+                        {
+                            Stations.Add(station);
+                            if (station.IsFavorite)
+                            {
+                                FavoriteStations.Add(station);
+                            }
+                            Debug.WriteLine($"✅ Loaded: {station.Name}");
+                        }
+                        else
+                        {
+                            Debug.WriteLine($"❌ Invalid station: {station.Name}");
+                        }
+                    }
+
+                    Debug.WriteLine($"🎯 Total loaded: {Stations.Count} stations");
+
+                    // Sortiranje
+                    var sortedStations = Stations.OrderBy(s => s.Name).ToList();
+                    Stations.Clear();
+                    foreach (var station in sortedStations)
+                    {
+                        Stations.Add(station);
+                    }
+
+                    // Obavezno ažuriraj UI
+                    UpdateAvailableFilters();
+                    ApplyFilters();
+                }
+                else
+                {
+                    Debug.WriteLine("❌ Deserialization returned null");
+                    LoadDefaultStations();
+                }
+            }
+            else
+            {
+                Debug.WriteLine("📁 JSON file not found, creating defaults");
+                LoadDefaultStations();
+                SaveStations();
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"💥 Load error: {ex.Message}");
+            LoadDefaultStations();
+        }
+    }
+
+    private bool IsValidStation(RadioStation station)
+    {
+        return !string.IsNullOrWhiteSpace(station.Name) &&
+               !string.IsNullOrWhiteSpace(station.StreamUrl) &&
+               !string.IsNullOrWhiteSpace(station.Genre) &&
+               !string.IsNullOrWhiteSpace(station.Country);
+    }
+
+    public void SaveStations()
+    {
+        try
+        {
+            var options = new JsonSerializerOptions
+            {
+                WriteIndented = true,
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            };
+
+            // Koristimo listu za serijalizaciju
+            var stationsList = Stations.ToList();
+            var json = JsonSerializer.Serialize(stationsList, options);
+            File.WriteAllText(_dataFilePath, json);
+
+            Debug.WriteLine($"💾 Saved {Stations.Count} stations to: {_dataFilePath}");
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"❌ Save error: {ex.Message}");
+        }
+    }
+
 
     private void LoadDefaultStations()
     {
@@ -122,15 +257,23 @@ public class RadioStationManager
         }
     }
 
+
+
     public void AddStation(RadioStation station)
     {
         Stations.Add(station);
+        SaveStations();
+        UpdateAvailableFilters();
+        ApplyFilters();
     }
 
     public void RemoveStation(RadioStation station)
     {
         Stations.Remove(station);
         FavoriteStations.Remove(station);
+        SaveStations();
+        UpdateAvailableFilters();
+        ApplyFilters();
     }
 
     public void ToggleFavorite(RadioStation station)
@@ -147,6 +290,8 @@ public class RadioStationManager
             FavoriteStations.Remove(station);
             StationUnfavorited?.Invoke(this, new StationEventArgs(station));
         }
+
+        SaveStations();
     }
 
 
